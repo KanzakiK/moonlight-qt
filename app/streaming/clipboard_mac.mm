@@ -16,6 +16,12 @@ static QString nsStringToQString(NSString* string)
     return QString::fromUtf8([string UTF8String]);
 }
 
+static NSString* const kPasteboardTypeJPEG = @"public.jpeg";
+static NSString* const kPasteboardTypeGIF = @"com.compuserve.gif";
+static NSString* const kPasteboardTypeHEIC = @"public.heic";
+static NSString* const kPasteboardTypeHEIF = @"public.heif";
+static NSString* const kPasteboardTypeWebP = @"org.webmproject.webp";
+
 static bool encodeImageAsPng(NSImage* image, QByteArray& outPng)
 {
     if (image == nil) {
@@ -39,7 +45,7 @@ static bool encodeImageAsPng(NSImage* image, QByteArray& outPng)
         return false;
     }
 
-    NSData* pngData = [bitmapRep representationUsingType:NSPNGFileType properties:@{}];
+    NSData* pngData = [bitmapRep representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
     if (pngData == nil || pngData.length == 0) {
         return false;
     }
@@ -358,11 +364,11 @@ bool readImageAsPng(QByteArray& outPng,
     NSArray<NSString*>* prioritizedTypes = @[
         NSPasteboardTypePNG,
         NSPasteboardTypeTIFF,
-        NSPasteboardTypeJPEG,
-        NSPasteboardTypeGIF,
-        @"public.heic",
-        @"public.heif",
-        @"public.webp",
+        kPasteboardTypeJPEG,
+        kPasteboardTypeGIF,
+        kPasteboardTypeHEIC,
+        kPasteboardTypeHEIF,
+        kPasteboardTypeWebP,
         NSPasteboardTypeFileURL,
         NSPasteboardTypeHTML,
     ];
