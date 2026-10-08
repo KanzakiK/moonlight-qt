@@ -133,6 +133,39 @@ GitHub 规定：只要改动 `.github/workflows/` 下任意文件，令牌必须
 
 ---
 
+## 坑位 7：未签名 → 本地网络被静默拒绝（最隐蔽的一个）
+
+**现象**：app 能正常启动、界面正常，但**永远搜不到主机**；手动输入 IP 也连不上。
+日志只有一行，且看不出是权限问题：
+
+```
+Executing request: "http://192.168.50.156:47989/serverinfo?..."
+"serverinfo" request failed with error: QNetworkReply::UnknownNetworkError
+```
+
+**误判方向**：一开始会以为是主机没开、防火墙、端口错、系统代理。
+但 `curl http://<ip>:47989/serverinfo` 在同一台机器上是 **200 正常**的 —— 网络没问题。
+
+**真正的判别信号**：请求与报错在**同一秒**。超时会等几秒；立刻失败说明是系统层面直接拒，
+不是网络不通。
+
+**根因**：macOS 15 的「本地网络」隐私权限只授予**已签名**的代码。
+`codesign -dv` 显示 `code object is not signed at all` 时，
+**系统连权限框都不弹，静默拒绝所有 LAN 连接**（mDNS 发现和 HTTP 请求一起挂）。
+
+**解法**：ad-hoc 签名即可，不需要开发者证书
+
+```bash
+codesign --force --deep --sign - /Applications/Moonlight.app
+```
+
+签名后 CDHash 变化，macOS 会把它当新应用重新弹「本地网络」授权框，点允许即可。
+
+**已写进 `scripts/build-macos-x86.sh`**，构建时自动执行，别手动省掉这一步。
+
+> 顺带：`NSLocalNetworkUsageDescription` 与 `NSBonjourServices` 项目 Info.plist 里本来就有，
+> 缺的只是签名，不是声明。
+
 ## 附带结论
 
 - Qt 6.11.2 的 macOS 包确认是 universal，`lipo -info` 显示 `x86_64 arm64`；

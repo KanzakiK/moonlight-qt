@@ -100,6 +100,9 @@ bash scripts/build-macos-x86.sh release
 lipo -info build/build-x86_64/app/Moonlight.app/Contents/MacOS/Moonlight
 # 期望输出：Non-fat file: ... is architecture: x86_64
 
+codesign -dv /Applications/Moonlight.app 2>&1 | grep Signature
+# 期望输出：Signature=adhoc —— 不能是 "code object is not signed at all"
+
 # 安装（ditto 能正确保留 framework 里的符号链接，别用 cp -R）
 sudo ditto build/build-x86_64/app/Moonlight.app /Applications/Moonlight.app
 xattr -dr com.apple.quarantine /Applications/Moonlight.app

@@ -74,7 +74,16 @@ macdeployqt "$APP" -qmldir="$SRC/app/gui" \
 
 find "$APP" -name '*.dSYM' -prune -exec rm -rf {} + 2>/dev/null || true
 
-# ---- 6. 去掉隔离属性，本机首次打开不会被 Gatekeeper 拦 ----
+# ---- 6. ad-hoc 签名（关键，别省）----
+# macOS 15 的「本地网络」隐私权限只会授予**已签名**的代码。完全未签名的 app
+# 不会弹权限框，而是被静默拒绝：现象是首页 mDNS 一直转圈、手动加 IP 也连不上，
+# 日志里报 "serverinfo" request failed with error: QNetworkReply::UnknownNetworkError
+# 且请求与报错在同一秒（不是超时，是系统直接拒）。
+# ad-hoc 签名（"-"）不需要证书，但足以让 TCC 记录并弹出授权框。
+echo "[build] ==> ad-hoc 签名"
+codesign --force --deep --sign - "$APP" || fail "签名失败"
+
+# ---- 7. 去掉隔离属性，本机首次打开不会被 Gatekeeper 拦 ----
 xattr -dr com.apple.quarantine "$APP" 2>/dev/null || true
 
 echo
