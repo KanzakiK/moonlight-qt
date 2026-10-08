@@ -75,6 +75,25 @@ bash scripts/build-macos-x86.sh release
 
 串流主体（画面 / 音频 / 手柄 / 剪贴板）不受影响。
 
+### 为什么跳过：实测结论（与 x86_64 无关）
+
+容易误以为是「Intel Mac 不支持」，实际查下来**两个组件的构建脚本都把 x86_64 当成一等目标**：
+
+- `generate-dmg.sh` 的 `MOONLIGHT_ARCH` 默认取 `uname -m`，非 arm64 一律归一成 `x86_64`；
+  注释里明确写了「Intel Mac 上装了才发现打不开」，产出的 DMG 名字带架构后缀。
+- `build-macos-fileprovider-extension.sh` 显式分支 `if [ arch != arm64 ] && [ arch != x86_64 ]; then arch=x86_64; fi`，
+  部署目标 `macos11.0`。实测 `swiftc -target x86_64-apple-macos11.0` 能直接编出 x86_64 的 appex。
+
+真正的阻碍是另外两件事：
+
+| 组件 | 能否编译 x86_64 | 实际阻碍 |
+|---|---|---|
+| USB 转发 `moonlight-usbd` | 能（libusb 用 Darwin 后端 `os/darwin_usb.c`，纯 IOKit/CF 代码，无架构分支） | 需要 `cmake ≥ 3.24` 与 `pkg-config`（usbipdcpp 走 `pkg_check_modules`）。另外 macOS 下系统驱动占用的接口（HID 手柄/键鼠、存储、摄像头）libusb 无法 claim，列表里会标「In use by macOS」且不可共享，这是平台权限限制 |
+| File Provider 扩展 | 能（已实测编出 x86_64） | **运行时必须代码签名**。entitlements 含 `app-sandbox` 与 `application-groups`(`group.com.alkaidlab.vpluspc.FileProvider`)，App Group 需要真实 Developer ID + provisioning profile；未签名的 appex 不会被 `fileproviderd` 加载，编了也用不了 |
+
+结论：自用且不需要文件夹映射时，跳过这两项是合理的；
+只在需要 USB 转发且愿意装 cmake/pkg-config 时才值得补上。
+
 ## 6. 验证与安装
 
 ```bash
