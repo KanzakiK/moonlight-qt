@@ -166,6 +166,40 @@ codesign --force --deep --sign - /Applications/Moonlight.app
 > 顺带：`NSLocalNetworkUsageDescription` 与 `NSBonjourServices` 项目 Info.plist 里本来就有，
 > 缺的只是签名，不是声明。
 
+## 坑位 8：在 fork 上发布 Release 会触发整套 CI
+
+自己编译的产物要发到 fork 仓库备份时容易踩到：`build.yml` 的触发条件里写了
+
+```yaml
+on:
+  push:
+    branches: [ master, main ]
+  release:
+    types: [ published ]
+```
+
+也就是说 **push 到 master 和「发布 Release」都会触发全平台构建**（Linux AppImage / Windows exe / macOS arm64 dmg），
+一次约 20 分钟，并且会把 12 个 ci 产物上传到同一个 Release，与自己上传的本机产物混在一起。
+
+**处理顺序很重要**：不要试图「推一个提交去禁用 workflow」——那个 push 本身就会先触发一遍构建，
+等于为了省钱先花一笔。正确做法是先在网页端关掉：
+
+> fork 仓库 → **Settings** → **Actions** → **General** → **Disable actions** → Save
+
+细粒度令牌没有 `Administration` 权限，这个开关 API 改不了（`403`），只能手点。
+
+**如何确认真的关掉了**：直接访问 `<fork 仓库>/actions`，返回 **404** 即表示已禁用
+（正常情况下是 200，可以拿上游同一个仓库的 `/actions` 做对照）。
+注意不要用「工作流列表里 state 是否为 active」来判断——仓库级开关不会改单个工作流的状态，
+那些 workflow 依旧显示 `active` 但不会执行。
+
+一个附带好处：仓库级关掉后，`upstream-status.yml` 里每周一次的 cron 定时任务也一并停了。
+
+**顺带澄清计费**：用量详细的 **SKU 明细与费率** 页，`Gross amount` 是按标价折算的用量价值，
+`Billed amount` 才是实际扣款金额。public 仓库用的是标准 runner（`ubuntu-*` / `windows-*` / `macos-*`），
+不含 larger runner 与 self-hosted，这部分**全部走免费额度，Billed 列是 $0**。
+看到 Gross 出现两位数别慌，认准 `Billed amount` 那一列。
+
 ## 附带结论
 
 - Qt 6.11.2 的 macOS 包确认是 universal，`lipo -info` 显示 `x86_64 arm64`；
